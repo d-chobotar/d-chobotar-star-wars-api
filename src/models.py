@@ -1,7 +1,9 @@
 from datetime import timezone, datetime
 from flask_sqlalchemy import SQLAlchemy
+from collections import OrderedDict
 
 db = SQLAlchemy()
+
 
 class User(db.Model):
     __tablename__ = 'users' 
@@ -15,17 +17,21 @@ class User(db.Model):
 
     posts = db.relationship("Post", back_populates="user")
     favorites = db.relationship("Favorite", back_populates="user")
-
+    
     def serialize(self):
         return {
             "id": self.id,
             "email": self.email,
             "username": self.username,
             "created_at": self.created_at, 
-            "is_active": self.is_active 
+            "is_active": self.is_active,
+            "favorites": {
+                "planets": [fav.planet.serialize_slim() for fav in self.favorites if fav.planet],
+                "people": [fav.character.serialize_slim() for fav in self.favorites if fav.character],
+            },
+            "posts": [post.serialize_slim() for post in self.posts]
         }
     
-
 class Planet(db.Model):
     __tablename__ = 'planets'
 
@@ -33,7 +39,6 @@ class Planet(db.Model):
     name = db.Column(db.String(100), unique=True, nullable=False)
     description = db.Column(db.Text)
     image_url = db.Column(db.String(255))
-
     characters = db.relationship("Character", back_populates="planet")
     favorites = db.relationship("Favorite", back_populates="planet")
 
@@ -42,7 +47,14 @@ class Planet(db.Model):
             "id": self.id,
             "name": self.name,
             "description": self.description,
-            "image_url": self.image_url
+            "image_url": self.image_url,
+            "people": self.characters
+        }
+    
+    def serialize_slim(self):
+        return {   
+            "id": self.id,
+            "name": self.name
         }
 
 class Character(db.Model):
@@ -57,6 +69,20 @@ class Character(db.Model):
     planet = db.relationship("Planet", back_populates="characters")
     favorites = db.relationship("Favorite", back_populates="character")
 
+    def serialize(self):
+        return OrderedDict([
+            ("id", self.id),
+            ("name", self.name),
+            ("description", self.description),
+            ("image_url", self.image_url),
+            ("planet_id", self.planet_id)
+        ])
+    
+    def serialize_slim(self):
+        return OrderedDict([
+            ("id", self.id),
+            ("name", self.name)
+        ])
 
 class Favorite(db.Model):
     __tablename__ = 'favorites'
@@ -81,4 +107,22 @@ class Post(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
-    user = db.relationship("User", back_populates="posts")   
+    user = db.relationship("User", back_populates="posts")  
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "content": self.content,
+            "user_id": self.user_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    def serialize_slim(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+        }  
