@@ -8,7 +8,7 @@ from flask_swagger import swagger
 from flask_cors import CORS
 from utils import APIException, generate_sitemap
 from admin import setup_admin
-from models import db, User
+from models import db, User, Planet
 
 app = Flask(__name__)
 app.url_map.strict_slashes = False
@@ -76,7 +76,57 @@ def create_user():
 @api.route('/users', methods=["GET"])
 def get_users():
     users = User.query.all()
-    return jsonify(users=[user.serialize() for user in users])
+    return jsonify(users=[user.serialize() for user in users]), 200
+
+@api.route('/users/<string:username>', methods=["GET"])
+def get_user_by_username(username):
+    user = User.query.filter_by(username=username).first()
+    if user:
+        return jsonify(user.serialize()), 200
+    return jsonify({"error": f"user {username} does not exist"}), 404
+
+@api.route('/planets', methods=["POST"])
+def create_planet():
+    """
+    payload:
+    {
+        "name": "planet name",
+        "description": "planet description",
+        "image_url": "url"
+    }
+    """
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "No request payload found"}), 400
+
+    if not 'name' in data:
+        return jsonify({"error": "Bad request, missing name."}), 400
+    
+    if not 'description' in data:
+        return jsonify({"error": "Bad request, missing description."}), 400
+    
+    if not 'image_url' in data:
+        return jsonify({"error": "Bad request, missing image_url."}), 400
+    
+    planet: Planet | None = Planet.query.filter_by(name=data.get('name')).first()
+    
+    if planet:
+        return jsonify({"error": f"Name {data.get('name')} alerady exists."}), 400
+    
+    planet = Planet(name=data.get("name"), description=data.get("description"), image_url=data.get("image_url"))
+
+    db.session().add(planet)
+    db.session.commit()
+    db.session.refresh(planet)
+
+    return jsonify(planet.serialize()), 201
+
+@api.route('/planets', methods=["GET"])
+def get_planets():
+    planets = Planet.query.all()
+    return jsonify(planets=[planet.serialize() for planet in planets])
+
 
 app.register_blueprint(api)
 

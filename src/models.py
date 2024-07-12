@@ -17,7 +17,7 @@ class User(db.Model):
     favorites = db.relationship("Favorite", back_populates="user")
 
     def serialize(self):
-        return{
+        return {
             "id": self.id,
             "email": self.email,
             "username": self.username,
@@ -36,6 +36,14 @@ class Planet(db.Model):
 
     characters = db.relationship("Character", back_populates="planet")
     favorites = db.relationship("Favorite", back_populates="planet")
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "image_url": self.image_url
+        }
 
 class Character(db.Model):
     __tablename__ = 'characters'
